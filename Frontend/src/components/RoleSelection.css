@@ -1,0 +1,276 @@
+.role-selection-container {
+  min-height: 100vh;               /* take full screen height */
+  display: flex;                   /* enable flexbox */
+  align-items: center;             /* vertical centering */
+  justify-content: center;         /* horizontal centering */
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+
+
+
+.role-selection-card {
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  width: 100%;
+}
+
+.role-selection-card h2 {
+  text-align: center;
+  margin-bottom: 8px;
+  color: #333;
+  font-size: 2rem;
+}
+
+.subtitle {
+  text-align: center;
+  color: #666;
+  margin-bottom: 30px;
+  font-size: 1.1rem;
+}
+
+.role-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.role-option {
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.role-option:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+}
+
+.role-option.selected {
+  border-color: #667eea;
+  background-color: #f8f9ff;
+}
+
+.role-icon {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+}
+
+.role-option h3 {
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.role-option p {
+  color: #666;
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
+.role-option ul {
+  text-align: left;
+  color: #666;
+  font-size: 0.9rem;
+  padding-left: 20px;
+}
+
+.role-option li {
+  margin-bottom: 5px;
+}
+
+.company-input {
+  margin-bottom: 25px;
+}
+
+.company-input label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+.company-input input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.company-input input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.continue-button {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.continue-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.continue-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.login-link {
+  text-align: center;
+  margin-top: 20px;
+  color: #666;
+}
+
+.login-link a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.login-link a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .role-options {
+    grid-template-columns: 1fr;
+  }
+  
+  .role-selection-card {
+    padding: 30px 20px;
+  }
+}
+
+/* Add these to your existing RoleSelection.css */
+
+.clerk-sign-in-root,
+.clerk-sign-up-root {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.clerk-sign-in-card,
+.clerk-sign-up-card {
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.back-link {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.back-link a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.back-link a:hover {
+  text-decoration: underline;
+}
+
+.debug-info {
+  text-align: center;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.debug-info small {
+  color: #888;
+}
+
+.debug-info a {
+  color: #667eea;
+  text-decoration: none;
+}
+
+.debug-info a:hover {
+  text-decoration: underline;
+}
+
+/* Add these to your existing RoleSelection.css */
+
+.continue-button {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  margin-bottom: 1rem;
+}
+
+.continue-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.continue-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.signup-options {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.email-signup-button {
+  width: 100%;
+  padding: 12px;
+  background: #f8f9fa;
+  color: #333;
+  border: 2px solid #e1e5e9;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.email-signup-button:hover {
+  background: #e9ecef;
+  border-color: #667eea;
+}
+
+.back-button {
+  width: 100%;
+  padding: 12px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.back-button:hover {
+  background: #545b62;
+}

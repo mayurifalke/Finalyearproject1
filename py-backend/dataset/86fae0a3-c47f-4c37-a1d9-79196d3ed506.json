@@ -1,0 +1,120 @@
+{
+  "name": "A TASHWINI THIKOLE",
+  "phone": "9 3 5 9 3 9 5 6 9 3",
+  "mail": "ashwini.thikole@gmail.com",
+  "social": {
+    "github": "github.com/ashu-2004",
+    "linkedin": "",
+    "portfolio": ""
+  },
+  "education": [
+    {
+      "name": "Government College Of Engineering And Research Avasari Khurd",
+      "qualification": "Bachelor of Engineering",
+      "category": "Undergraduate",
+      "start": "09/2023",
+      "end": "05/2026"
+    },
+    {
+      "name": "Abhinav Education Society’s College Of Engineering - Polytechnic",
+      "qualification": "Diploma in Computer Engineering",
+      "category": "Diploma / Vocational Education",
+      "start": "09/2020",
+      "end": "05/2023"
+    },
+    {
+      "name": "Yashwant Vidyalaya Mavadi K. P. Branch High School Pandeshwar",
+      "qualification": "SSC",
+      "category": "Secondary Education",
+      "start": "06/2019",
+      "end": "03/2020"
+    }
+  ],
+  "skills": [
+    "Bootstrap",
+    "C",
+    "C++",
+    "CSS",
+    "E Commerce",
+    "GitHub",
+    "HTML",
+    "Java",
+    "JavaScript",
+    "MongoDB",
+    "PHP",
+    "Python",
+    "React",
+    "REST",
+    "SQL",
+    "Visual Studio Code",
+    "Node.js",
+    "Express.js"
+  ],
+  "projects": [
+    {
+      "title": "SheLaunch",
+      "description": "An innovative platform for entrepreneurs to connect with mentors and investors, enabling real-time communication and tailored startup advice.",
+      "project_skills": [
+        "MERN Stack",
+        "WebSocket",
+        "Gen AI",
+        "LLM"
+      ]
+    },
+    {
+      "title": "Freelancing Project – Valine Agro",
+      "description": "A dynamic e-commerce platform for agricultural products, supporting multiple user roles and automated product management.",
+      "project_skills": [
+        "MERN"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "company_name": "D D Digital Solution Pvt. Ltd",
+      "designation": "Junior React Developer (Intern)",
+      "description": "Led a 2-member developer team to deliver the Mauli Dairy System, designed frontend components using React.js, and integrated RESTful APIs.",
+      "experiance_skills": [
+        "React.js",
+        "API Integration",
+        "Frontend Development"
+      ],
+      "start": "02/2025",
+      "end": "05/2025"
+    },
+    {
+      "company_name": "Open Interface Software Solution Pvt. Ltd",
+      "designation": "SDE (Intern)",
+      "description": "Developed features for managing booking approvals and car inventory, contributing significantly to the admin panel’s functionality.",
+      "experiance_skills": [
+        "Software Development",
+        "Feature Development",
+        "Booking Functionality"
+      ],
+      "start": "07/2022",
+      "end": "08/2022"
+    }
+  ],
+  "certifications": [],
+  "achievements": [
+    "Increased user base by 500 within first month of launch.",
+    "Achieved 70% query response improvement with AI solutions.",
+    "Managed 10 team members in development projects.",
+    "Integrated 60 APIs improving app performance by 40%."
+  ],
+  "total_experience_years": 0.33,
+  "_id": "86fae0a3-c47f-4c37-a1d9-79196d3ed506",
+  "created_at": "2025-11-10T06:45:51.036974Z",
+  "vector_ids": {
+    "professional_summary": "prof_86fae0a3-c47f-4c37-a1d9-79196d3ed506",
+    "skills_matrix": "skills_86fae0a3-c47f-4c37-a1d9-79196d3ed506",
+    "project_portfolio": "project_86fae0a3-c47f-4c37-a1d9-79196d3ed506"
+  },
+  "pinecone_metadata": {
+    "candidate_id": "86fae0a3-c47f-4c37-a1d9-79196d3ed506",
+    "name": "A TASHWINI THIKOLE",
+    "seniority_level": "junior",
+    "highest_education": "BE",
+    "has_leadership": true
+  }
+}

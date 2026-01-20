@@ -1,0 +1,132 @@
+{
+  "name": "Mayuri Falke",
+  "phone": "9503841342",
+  "mail": "pemayurifalke222@gmail.com",
+  "social": {
+    "github": "https://github.com/mayurifalke",
+    "linkedin": "https://www.linkedin.com/in/mayuri-falke-7890a1291/",
+    "portfolio": ""
+  },
+  "education": [
+    {
+      "name": "Government College of Engineering and Research, Avasari Kh.",
+      "qualification": "Bachelor of Engineering (B.E.) in Computer Engineering",
+      "category": "Undergraduate",
+      "start": "September 2023",
+      "end": "May 2026"
+    },
+    {
+      "name": "CSMSS College of Polytechnic",
+      "qualification": "Diploma in Computer Engineering",
+      "category": "Diploma / Vocational Education",
+      "start": "September 2020",
+      "end": "April 2023"
+    },
+    {
+      "name": "SMALL WONDERS SCHOOL, WALUJ",
+      "qualification": "SSC",
+      "category": "Secondary Education",
+      "start": "June 2019",
+      "end": "March 2020"
+    }
+  ],
+  "skills": [
+    "React.js",
+    "Node.js",
+    "Express.js",
+    "Java",
+    "DSA",
+    "OOP",
+    "Python",
+    "Bootstrap",
+    "C",
+    "HTML",
+    "CSS",
+    "Javascript",
+    "PHP",
+    "MySQL",
+    "MongoDB",
+    "SQL",
+    "VSCode",
+    "Github",
+    "Git",
+    "PyScripter",
+    "Dev-C++",
+    "IntelliJ IDEA"
+  ],
+  "projects": [
+    {
+      "title": "SheLaunch",
+      "description": "Developed a full-stack platform empowering 500+ women entrepreneurs with integrated admin, mentor, investor, and user modules for seamless networking and startup growth.",
+      "project_skills": [
+        "React.js",
+        "Node.js",
+        "Express.js",
+        "MongoDB",
+        "Python",
+        "Generative AI",
+        "WebSocket",
+        "LLM"
+      ]
+    },
+    {
+      "title": "Valine Agro",
+      "description": "Constructed a role-based web application with 4 hierarchical dashboards (Admin, CCM, DM, AM), improving data accessibility for 50+ users across organizational levels.",
+      "project_skills": [
+        "React.js",
+        "Node.js",
+        "Express.js",
+        "MongoDB"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "company_name": "DD Digital Solution",
+      "designation": "React Developer Intern",
+      "description": "Developed 30+ responsive UI components and integrated 50+ REST APIs for a live CRM web app to manage employees, tasks, and leads. Collaborated with a team of 5 developers, aligning frontend with backend seamlessly while following best coding practices.",
+      "experiance_skills": [
+        "React.js",
+        "API integration",
+        "agile teamwork"
+      ],
+      "start": "January 2025",
+      "end": "May 2025"
+    },
+    {
+      "company_name": "Hi-soft IT Solution Pvt. Ltd.",
+      "designation": "Software Developer Intern",
+      "description": "Built a fully responsive Hospital Management System web application using PHP, MySQL, JavaScript, HTML, and CSS to efficiently manage patient registrations, appointments, and medical records. Developed dynamic backend functionalities in PHP, designed optimized MySQL databases, and performed code optimization and bug fixing to enhance application performance and reliability.",
+      "experiance_skills": [
+        "PHP",
+        "MySQL",
+        "JavaScript",
+        "HTML",
+        "CSS",
+        "Git"
+      ],
+      "start": "July 2022",
+      "end": "August 2022"
+    }
+  ],
+  "certifications": [],
+  "achievements": [
+    "Hackathon Club Member at GCOEARA, Pune",
+    "Treasurer SPPU"
+  ],
+  "total_experience_years": 0.41,
+  "_id": "af2a1402-1afe-4f66-80ee-b81a5235f7eb",
+  "created_at": "2025-11-09T19:57:18.211213Z",
+  "vector_ids": {
+    "professional_summary": "prof_af2a1402-1afe-4f66-80ee-b81a5235f7eb",
+    "skills_matrix": "skills_af2a1402-1afe-4f66-80ee-b81a5235f7eb",
+    "project_portfolio": "project_af2a1402-1afe-4f66-80ee-b81a5235f7eb"
+  },
+  "pinecone_metadata": {
+    "candidate_id": "af2a1402-1afe-4f66-80ee-b81a5235f7eb",
+    "name": "Mayuri Falke",
+    "seniority_level": "junior",
+    "highest_education": "BE",
+    "has_leadership": true
+  }
+}
