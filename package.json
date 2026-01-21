@@ -1,0 +1,14 @@
+{
+  "name": "finalyearproject1",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "frontend": "npm --prefix Frontend run dev",
+    "node": "npm --prefix node-backend run start",
+    "py": "cd py-backend && .venv\\Scripts\\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000",
+    "dev": "concurrently -n \"FRONTEND,NODE,PYTHON\" -c \"blue,green,yellow\" \"npm run frontend\" \"npm run node\" \"npm run py\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "_id": "74a6646e-06e6-4955-9587-ca4e82454f72",
+  "user_id": "6970ae6ebc665c66f3004f4f",
+  "created_at": "2026-01-21T10:50:40.786425Z",
+  "vector_ids": {
+    "professional_summary": "prof_74a6646e-06e6-4955-9587-ca4e82454f72",
+    "skills_matrix": "skills_74a6646e-06e6-4955-9587-ca4e82454f72",
+    "project_portfolio": "project_74a6646e-06e6-4955-9587-ca4e82454f72"
+  },
+  "pinecone_metadata": {
+    "candidate_id": "74a6646e-06e6-4955-9587-ca4e82454f72",
+    "name": "Mayuri Falke",
+    "seniority_level": "junior",
+    "highest_education": "BE",
+    "has_leadership": false
+  },
+  "name": "Mayuri Falke",
+  "phone": "9503841342",
+  "mail": "mayurifalke222@gmail.com",
+  "social": {
+    "github": "https://github.com/mayurifalke",
+    "linkedin": "https://www.linkedin.com/in/mayuri-falke-7890a1291/",
+    "portfolio": ""
+  },
+  "education": [
+    {
+      "name": "Government College of Engineering and Research, Avasari Kh.",
+      "qualification": "Bachelor of Engineering (B.E.) in Computer Engineering",
+      "category": "Undergraduate",
+      "start": "September 2023",
+      "end": "May 2026"
+    },
+    {
+      "name": "CSMSS College of Polytechnic",
+      "qualification": "Diploma in Computer Engineering",
+      "category": "Diploma / Vocational Education",
+      "start": "September 2020",
+      "end": "April 2023"
+    },
+    {
+      "name": "SMALL WONDERS SCHOOL, WALUJ",
+      "qualification": "SSC",
+      "category": "Secondary Education",
+      "start": "June 2019",
+      "end": "March 2020"
+    }
+  ],
+  "skills": [
+    "React.js",
+    "Node.js",
+    "Express.js",
+    "Java",
+    "DSA",
+    "OOP",
+    "Python",
+    "Bootstrap",
+    "C",
+    "HTML",
+    "CSS",
+    "Javascript",
+    "PHP",
+    "MySQL",
+    "MongoDB",
+    "SQL"
+  ],
+  "projects": [
+    {
+      "title": "InsightHire",
+      "description": "Built an end-to-end AI recruitment platform with job posting, resume screening, interview scheduling, real-time interviews, and automated multimodal analysis.",
+      "project_skills": [
+        "MERN Stack",
+        "Django",
+        "FastAPI",
+        "Deepgram",
+        "Grok",
+        "Generative AI"
+      ]
+    },
+    {
+      "title": "SheLaunch",
+      "description": "Developed a platform empowering 500+ women entrepreneurs, integrating admin, mentor, investor, and user modules with real-time networking, AI-driven idea generation, and smart mentor–mentee matching.",
+      "project_skills": [
+        "MERN Stack",
+        "Generative AI",
+        "WebSocket",
+        "LLM"
+      ]
+    },
+    {
+      "title": "Valine Agro (Freelancing Project)",
+      "description": "A role-based web application with 4 hierarchical dashboards (Admin, CCM, DM, AM), improving data accessibility and workflow efficiency for 100+ users.",
+      "project_skills": [
+        "React.js",
+        "Node.js",
+        "Express.js",
+        "MongoDB"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "company_name": "DD Digital Solution",
+      "designation": "React Developer Intern",
+      "description": "Developed 30+ responsive UI components and integrated 50+ REST APIs using React.js for a production CRM web application, enabling efficient management of employees, tasks, and leads.",
+      "experiance_skills": [
+        "React.js",
+        "REST APIs",
+        "Agile"
+      ],
+      "start": "January 2025",
+      "end": "May 2025"
+    },
+    {
+      "company_name": "Hi-soft IT Solution Pvt. Ltd.",
+      "designation": "Software Developer Intern",
+      "description": "Developed full-stack responsive Hospital Management System during internship using PHP, MySQL, JavaScript, HTML and CSS to streamline patient registration, appointments, and medical records management.",
+      "experiance_skills": [
+        "PHP",
+        "MySQL",
+        "JavaScript",
+        "HTML",
+        "CSS",
+        "Git"
+      ],
+      "start": "July 2022",
+      "end": "August 2022"
+    }
+  ],
+  "certifications": [
+    "AWS Cloud Quest: Cloud Practitioner"
+  ],
+  "achievements": [
+    "Managed hackathon finances and budgets while conducting technical and soft-skill sessions to ensure smooth events"
+  ],
+  "total_experience_years": 0.41
+}

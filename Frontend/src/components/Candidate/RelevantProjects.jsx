@@ -26,9 +26,11 @@ const RelevantProjects = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [stats, setStats] = useState(null);
+  const [appliedProjectIds, setAppliedProjectIds] = useState(new Set());
 
   useEffect(() => {
     fetchRelevantProjects();
+    fetchExistingApplications();
   }, []);
 
 
@@ -37,14 +39,14 @@ const RelevantProjects = () => {
     try {
       setIsLoading(true);
       setError('');
-      
+
       const response = await axios.get('/api/candidate/relevant-projects', {
         withCredentials: true,
         params: {
           top_k: 50
         }
       });
-      
+
       if (response.data.success) {
         setProjects(response.data.projects || []);
         setFilteredProjects(response.data.projects || []);
@@ -56,10 +58,10 @@ const RelevantProjects = () => {
       } else {
         setError(response.data.message || 'Failed to fetch relevant projects');
       }
-      
+
     } catch (error) {
       console.error('Error fetching relevant projects:', error);
-      
+
       // Provide more specific error messages
       if (error.response?.status === 404) {
         setError('Candidate profile not found. Please complete your profile first.');
@@ -75,6 +77,27 @@ const RelevantProjects = () => {
     }
   };
 
+  // Fetch already applied projects so we don't allow re-applying
+  const fetchExistingApplications = async () => {
+    try {
+      const response = await axios.get('/api/applications/mine', {
+        withCredentials: true,
+      });
+
+      if (response.data?.success && Array.isArray(response.data.applications)) {
+        const ids = new Set(
+          response.data.applications
+            .map((app) => app.project_id)
+            .filter(Boolean)
+        );
+        setAppliedProjectIds(ids);
+      }
+    } catch (err) {
+      // Don't block recommendations if applications fetch fails
+      console.error('Error fetching existing applications:', err);
+    }
+  };
+
   // Apply filters and search
   useEffect(() => {
     let filtered = [...projects];
@@ -87,7 +110,7 @@ const RelevantProjects = () => {
           details?.job_title?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
           details?.project_description?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
           details?.job_location?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-          details?.project_skills?.some(skill => 
+          details?.project_skills?.some(skill =>
             skill.toLowerCase().includes(searchKeyword.toLowerCase())
           )
         );
@@ -99,7 +122,7 @@ const RelevantProjects = () => {
     if (selectedEmploymentTypes.length > 0) {
       filtered = filtered.filter(project => {
         const employmentType = project.project_details?.employment_type?.toLowerCase();
-        return selectedEmploymentTypes.some(selectedType => 
+        return selectedEmploymentTypes.some(selectedType =>
           employmentType?.includes(selectedType.toLowerCase())
         );
       });
@@ -108,9 +131,9 @@ const RelevantProjects = () => {
     // Skills filter
     const selectedSkills = Object.keys(filters.skills).filter(skill => filters.skills[skill]);
     if (selectedSkills.length > 0) {
-      filtered = filtered.filter(project => 
-        project.project_details?.project_skills?.some(skill => 
-          selectedSkills.some(selectedSkill => 
+      filtered = filtered.filter(project =>
+        project.project_details?.project_skills?.some(skill =>
+          selectedSkills.some(selectedSkill =>
             skill.toLowerCase().includes(selectedSkill.toLowerCase())
           )
         )
@@ -135,11 +158,45 @@ const RelevantProjects = () => {
     setSelectedProject(project);
   };
 
-  const handleApply = async (projectId, event) => {
+  const handleApply = async (projectId, projectDetails, event) => {
     event.stopPropagation();
-    console.log('Apply to project:', projectId);
-    // TODO: Implement application functionality
-    alert('Application feature coming soon!');
+
+    if (appliedProjectIds.has(projectId)) {
+      alert('You have already applied to this job.');
+      return;
+    }
+
+    // Simple confirmation popup before applying
+    const confirmed = window.confirm(
+      `Do you want to apply for "${projectDetails?.job_title || 'this job'}"?`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await axios.post('/api/applications/apply', {
+        project_id: projectId,
+        project_details: projectDetails,
+      }, {
+        withCredentials: true,
+      });
+
+      if (response.data?.success) {
+        setAppliedProjectIds((prev) => {
+          const next = new Set(prev);
+          next.add(projectId);
+          return next;
+        });
+        alert(response.data.message || 'Application submitted successfully');
+      } else {
+        alert(response.data?.detail || response.data?.message || 'Failed to submit application');
+      }
+    } catch (error) {
+      console.error('Error applying to project:', error);
+      const msg = error.response?.data?.detail || error.response?.data?.message || 'Failed to submit application';
+      alert(msg);
+    }
   };
 
   const handleSaveProject = async (projectId, event) => {
@@ -176,7 +233,7 @@ const RelevantProjects = () => {
       const now = new Date();
       const diffTime = Math.abs(date - now);
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays === 0) return 'Today';
       if (diffDays === 1) return '1 day left';
       if (diffDays < 7) return `${diffDays} days left`;
@@ -194,7 +251,7 @@ const RelevantProjects = () => {
       const now = new Date();
       const diffTime = Math.abs(now - date);
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays === 0) return 'Today';
       if (diffDays === 1) return '1 day ago';
       if (diffDays < 7) return `${diffDays} days ago`;
@@ -210,10 +267,10 @@ const RelevantProjects = () => {
     if (details?.salary_min && details?.salary_max) {
       const min = details.salary_min.toLocaleString();
       const max = details.salary_max.toLocaleString();
-      const frequency = details.salary_frequency === 'hourly' ? '/hr' : 
-                       details.salary_frequency === 'monthly' ? '/mo' : 
-                       details.salary_frequency === 'annually' ? '/year' : '';
-      
+      const frequency = details.salary_frequency === 'hourly' ? '/hr' :
+        details.salary_frequency === 'monthly' ? '/mo' :
+          details.salary_frequency === 'annually' ? '/year' : '';
+
       return `$${min} - $${max}${frequency}`;
     }
     return 'Salary not specified';
@@ -225,16 +282,16 @@ const RelevantProjects = () => {
 
   if (selectedProject) {
     const details = selectedProject.project_details;
-    
+
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <button 
+        <button
           onClick={() => setSelectedProject(null)}
           className="mb-4 flex items-center text-purple-600 hover:text-purple-700 font-medium text-base"
         >
           ← Back to Job Opportunities
         </button>
-        
+
         <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-100">
           <div className="flex justify-between items-start mb-6">
             <div className="flex-1">
@@ -293,7 +350,7 @@ const RelevantProjects = () => {
             <h3 className="font-semibold text-gray-900 mb-3 text-lg">Required Skills</h3>
             <div className="flex flex-wrap gap-2">
               {details?.project_skills?.map((skill, index) => (
-                <span 
+                <span
                   key={index}
                   className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-base font-medium"
                 >
@@ -326,13 +383,14 @@ const RelevantProjects = () => {
           </div>
 
           <div className="flex space-x-4 pt-6 border-t border-gray-200">
-            <button 
-              onClick={(e) => handleApply(selectedProject.project_id, e)}
+            <button
+              onClick={(e) => handleApply(selectedProject.project_id, details, e)}
               className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 font-medium text-base"
+              disabled={appliedProjectIds.has(selectedProject.project_id)}
             >
-              Apply Now
+              {appliedProjectIds.has(selectedProject.project_id) ? 'Applied' : 'Apply Now'}
             </button>
-            <button 
+            <button
               onClick={(e) => handleSaveProject(selectedProject.project_id, e)}
               className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 font-medium text-base"
             >
@@ -355,7 +413,7 @@ const RelevantProjects = () => {
             </p>
           )}
         </div>
-        <button 
+        <button
           onClick={fetchRelevantProjects}
           disabled={isLoading}
           className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors text-base font-medium disabled:bg-purple-300"
@@ -374,7 +432,7 @@ const RelevantProjects = () => {
           </div>
         </div>
       )}
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Filters Sidebar */}
         <div className="lg:col-span-1 space-y-6">
@@ -395,7 +453,7 @@ const RelevantProjects = () => {
           {/* Filter Section */}
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <h5 className="font-semibold text-gray-900 mb-3 text-base">Filter by:</h5>
-            
+
             {/* Employment Type */}
             <div className="mb-4">
               <h6 className="font-medium text-gray-700 mb-2 text-base">Employment Type</h6>
@@ -468,8 +526,8 @@ const RelevantProjects = () => {
                   {projects.length === 0 ? 'No job opportunities found' : 'No opportunities match your filters'}
                 </div>
                 <p className="text-gray-500 text-base mt-2">
-                  {projects.length === 0 
-                    ? 'Try refreshing or check back later for new opportunities.' 
+                  {projects.length === 0
+                    ? 'Try refreshing or check back later for new opportunities.'
                     : 'Try adjusting your filters or search terms.'
                   }
                 </p>
@@ -477,9 +535,9 @@ const RelevantProjects = () => {
             ) : (
               filteredProjects.map((project) => {
                 const details = project.project_details;
-                
+
                 return (
-                  <div 
+                  <div
                     key={project.project_id}
                     className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => handleProjectClick(project)}
@@ -514,7 +572,7 @@ const RelevantProjects = () => {
 
                     <div className="flex flex-wrap gap-2 mb-3">
                       {details?.project_skills?.slice(0, 6).map((skill, index) => (
-                        <span 
+                        <span
                           key={index}
                           className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-base"
                         >
@@ -531,16 +589,17 @@ const RelevantProjects = () => {
                         <span>Posted {getTimeAgo(details?.created_at)}</span>
                         <span className="ml-4">Match Score: {getMatchPercentage(project.overall_score)}%</span>
                       </div>
-                      
+
                       {/* Action Buttons */}
                       <div className="flex items-center space-x-3" onClick={(e) => e.stopPropagation()}>
-                        <button 
-                          onClick={(e) => handleApply(project.project_id, e)}
-                          className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 font-medium text-base"
+                        <button
+                          onClick={(e) => handleApply(project.project_id, details, e)}
+                          className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 font-medium text-base disabled:opacity-60 disabled:cursor-not-allowed"
+                          disabled={appliedProjectIds.has(project.project_id)}
                         >
-                          Apply Now
+                          {appliedProjectIds.has(project.project_id) ? 'Applied' : 'Apply Now'}
                         </button>
-                        <button 
+                        <button
                           onClick={(e) => handleSaveProject(project.project_id, e)}
                           className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors font-medium text-base"
                         >

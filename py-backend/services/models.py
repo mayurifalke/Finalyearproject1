@@ -372,6 +372,8 @@ class RankedCandidate(BaseModel):
     seniority_level: Optional[str] = None
     highest_education: Optional[str] = None
     has_leadership: Optional[bool] = None
+    email: Optional[str] = None
+    has_applied: bool = False
 
 
 class GetRankedCandidatesResponse(BaseModel):

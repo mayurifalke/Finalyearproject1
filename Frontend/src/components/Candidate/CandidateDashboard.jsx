@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '../../context/AuthContext';
 import CandidateProfile from './CandidateProfile';
 import RelevantProjects from './RelevantProjects';
+import CandidateApplications from './CandidateApplications';
 
 const CandidateDashboard = () => {
   const { user, backendUser, logout, isLoading } = useAuthContext();
@@ -12,7 +13,7 @@ const CandidateDashboard = () => {
   const [profileLoading, setProfileLoading] = useState(false);
   const [candidateId, setCandidateId] = useState(null);
   const [tempParsedData, setTempParsedData] = useState(null);
-  
+
   // Load profile data on component mount
   useEffect(() => {
     if (user?.id) {
@@ -22,34 +23,62 @@ const CandidateDashboard = () => {
 
   const loadUserProfile = async () => {
     if (!user?.id) return;
-    
+
     setProfileLoading(true);
     try {
       const storedCandidateId = localStorage.getItem(`candidate_id_${user.id}`);
-      
+
+      // First try using stored candidate_id if we have it
       if (storedCandidateId) {
         setCandidateId(storedCandidateId);
-        
+
         const response = await fetch(`/api/candidate-get/${storedCandidateId}`);
-        
+
         if (response.ok) {
           const result = await response.json();
           if (result.success && result.candidate) {
             setParsedResumeData(result.candidate);
             setResumeUploaded(true);
-            console.log('Loaded profile from MongoDB:', result.candidate);
+            console.log('Loaded profile from MongoDB using stored candidate_id:', result.candidate);
             return;
           }
         } else {
-          console.log('Failed to fetch candidate data, clearing localStorage');
+          console.log('Failed to fetch candidate data with stored ID, clearing localStorage');
           localStorage.removeItem(`candidate_id_${user.id}`);
         }
       }
-      
-      console.log(' No existing profile found');
-      
+
+      // Fallback: fetch candidate based on JWT user_id from backend
+      console.log('No stored candidate_id found. Trying /api/candidate/me ...');
+      const meResponse = await fetch('/api/candidate/me', {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (meResponse.ok) {
+        const meResult = await meResponse.json();
+        if (meResult.success && meResult.candidate) {
+          const idFromBackend = meResult.candidate._id;
+          setCandidateId(idFromBackend);
+          setParsedResumeData(meResult.candidate);
+          setResumeUploaded(true);
+
+          if (user?.id && idFromBackend) {
+            localStorage.setItem(`candidate_id_${user.id}`, idFromBackend);
+          }
+
+          console.log('Loaded profile via /api/candidate/me:', meResult.candidate);
+          return;
+        }
+      } else if (meResponse.status !== 404) {
+        // 404 just means no profile yet; other errors log for debugging
+        console.log('Failed to fetch candidate via /api/candidate/me:', meResponse.status);
+      }
+
+      console.log('No existing profile found for this user');
+
     } catch (error) {
-      console.log(' Error loading profile:', error.message);
+      console.log('Error loading profile:', error.message);
     } finally {
       setProfileLoading(false);
     }
@@ -84,7 +113,7 @@ const CandidateDashboard = () => {
 
     const validTypes = ['.pdf'];
     const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
-    
+
     if (!validTypes.includes(fileExtension)) {
       alert('Please upload a PDF file');
       return;
@@ -96,7 +125,7 @@ const CandidateDashboard = () => {
     }
 
     setUploadLoading(true);
-    
+
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -117,7 +146,7 @@ const CandidateDashboard = () => {
 
       const parseResult = await parseResponse.json();
       console.log('✅ Resume parsed successfully:', parseResult);
-      
+
       if (!parseResult.success) {
         throw new Error(parseResult.message || 'Failed to parse resume');
       }
@@ -136,95 +165,95 @@ const CandidateDashboard = () => {
   };
 
   // Handle saving NEW profile to database (calls register-json)
-// Handle saving NEW profile to database (calls register-json)
-const handleSaveNewProfile = async (profileData) => {
-  setUploadLoading(true);
-  
-  try {
-    console.log('📤 Saving NEW profile to database...');
+  // Handle saving NEW profile to database (calls register-json)
+  const handleSaveNewProfile = async (profileData) => {
+    setUploadLoading(true);
 
-    // Get the user_id from backendUser (which comes from JWT)
-    const user_id = backendUser?.id;
-    
-    if (!user_id) {
-      throw new Error("User ID not found. Please log in again.");
-    }
+    try {
+      console.log('📤 Saving NEW profile to database...');
 
-    // Add user_id to the profile data
-    const profileDataWithUserId = {
-      ...profileData,
-      user_id: user_id
-    };
+      // Get the user_id from backendUser (which comes from JWT)
+      const user_id = backendUser?.id;
 
-    console.log('🔍 Sending profile data with user_id:', user_id);
-
-    // Register the profile data in MongoDB and Pinecone
-    const registerResponse = await fetch('/api/register-json', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(profileDataWithUserId),
-    });
-
-    console.log('📥 Register response status:', registerResponse.status);
-
-    if (!registerResponse.ok) {
-      let errorMessage = `Registration failed: ${registerResponse.status} ${registerResponse.statusText}`;
-      try {
-        const errorData = await registerResponse.json();
-        errorMessage = errorData.detail || errorMessage;
-      } catch {
-        const errorText = await registerResponse.text();
-        errorMessage = errorText || errorMessage;
+      if (!user_id) {
+        throw new Error("User ID not found. Please log in again.");
       }
-      throw new Error(errorMessage);
-    }
 
-    const registerResult = await registerResponse.json();
-    console.log('✅ Profile saved successfully:', registerResult);
+      // Add user_id to the profile data
+      const profileDataWithUserId = {
+        ...profileData,
+        user_id: user_id
+      };
 
-    if (registerResult.success) {
-      // Store candidate ID for future retrieval
-      const newCandidateId = registerResult.candidate_id;
-      setCandidateId(newCandidateId);
-      
-      // Store in localStorage for persistence
-      if (user?.id) {
-        localStorage.setItem(`candidate_id_${user.id}`, newCandidateId);
-      }
-      
-      // Now fetch the complete candidate data from MongoDB
-      const candidateResponse = await fetch(`/api/candidate-get/${newCandidateId}`);
-      if (candidateResponse.ok) {
-        const candidateResult = await candidateResponse.json();
-        if (candidateResult.success) {
-          setParsedResumeData(candidateResult.candidate);
-          setResumeUploaded(true);
-          setTempParsedData(null); // Clear temporary data
-          console.log(' Loaded complete candidate data from MongoDB');
+      console.log('🔍 Sending profile data with user_id:', user_id);
+
+      // Register the profile data in MongoDB and Pinecone
+      const registerResponse = await fetch('/api/register-json', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileDataWithUserId),
+      });
+
+      console.log('📥 Register response status:', registerResponse.status);
+
+      if (!registerResponse.ok) {
+        let errorMessage = `Registration failed: ${registerResponse.status} ${registerResponse.statusText}`;
+        try {
+          const errorData = await registerResponse.json();
+          errorMessage = errorData.detail || errorMessage;
+        } catch {
+          const errorText = await registerResponse.text();
+          errorMessage = errorText || errorMessage;
         }
+        throw new Error(errorMessage);
       }
-      
-      console.log(' Profile saved permanently!');
-      return true;
-    } else {
-      throw new Error(registerResult.message || 'Failed to save profile');
-    }
 
-  } catch (error) {
-    console.error('❌ Profile save error:', error);
-    alert(`Failed to save profile: ${error.message}`);
-    return false;
-  } finally {
-    setUploadLoading(false);
-  }
-};
+      const registerResult = await registerResponse.json();
+      console.log('✅ Profile saved successfully:', registerResult);
+
+      if (registerResult.success) {
+        // Store candidate ID for future retrieval
+        const newCandidateId = registerResult.candidate_id;
+        setCandidateId(newCandidateId);
+
+        // Store in localStorage for persistence
+        if (user?.id) {
+          localStorage.setItem(`candidate_id_${user.id}`, newCandidateId);
+        }
+
+        // Now fetch the complete candidate data from MongoDB
+        const candidateResponse = await fetch(`/api/candidate-get/${newCandidateId}`);
+        if (candidateResponse.ok) {
+          const candidateResult = await candidateResponse.json();
+          if (candidateResult.success) {
+            setParsedResumeData(candidateResult.candidate);
+            setResumeUploaded(true);
+            setTempParsedData(null); // Clear temporary data
+            console.log(' Loaded complete candidate data from MongoDB');
+          }
+        }
+
+        console.log(' Profile saved permanently!');
+        return true;
+      } else {
+        throw new Error(registerResult.message || 'Failed to save profile');
+      }
+
+    } catch (error) {
+      console.error('❌ Profile save error:', error);
+      alert(`Failed to save profile: ${error.message}`);
+      return false;
+    } finally {
+      setUploadLoading(false);
+    }
+  };
 
   // Handle updating EXISTING profile (calls PUT /candidate/{candidate_id})
   const handleUpdateProfile = async (profileData) => {
     setUploadLoading(true);
-    
+
     try {
       console.log('📤 Updating existing profile...');
 
@@ -366,11 +395,10 @@ const handleSaveNewProfile = async (profileData) => {
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 ${
-                      activeTab === item.id
-                        ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent'
-                    }`}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 ${activeTab === item.id
+                      ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent'
+                      }`}
                   >
                     {item.label}
                   </button>
@@ -438,12 +466,12 @@ const handleSaveNewProfile = async (profileData) => {
                       {resumeUploaded ? 'Your Profile' : 'Resume Management'}
                     </h5>
                     <p className="text-gray-600 text-sm mb-6">
-                      {resumeUploaded 
-                        ? 'Your complete profile stored in MongoDB & Pinecone' 
+                      {resumeUploaded
+                        ? 'Your complete profile stored in MongoDB & Pinecone'
                         : 'Upload your resume to create your profile'
                       }
                     </p>
-                    
+
                     {!resumeUploaded ? (
                       <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center bg-gray-50">
                         <div className="max-w-md mx-auto">
@@ -492,7 +520,7 @@ const handleSaveNewProfile = async (profileData) => {
                               </div>
                             </div>
                           </div>
-                          <button 
+                          <button
                             onClick={() => setActiveTab('profile')}
                             className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200 font-medium text-sm ml-4"
                           >
@@ -528,8 +556,8 @@ const handleSaveNewProfile = async (profileData) => {
                 <h4 className="font-semibold text-gray-900 mb-4 text-lg">Profile</h4>
                 <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
                   {resumeUploaded || tempParsedData ? (
-                    <CandidateProfile 
-                      parsedResumeData={parsedResumeData || tempParsedData} 
+                    <CandidateProfile
+                      parsedResumeData={parsedResumeData || tempParsedData}
                       candidateId={candidateId}
                       isNewProfile={!resumeUploaded && tempParsedData}
                       onSaveProfile={resumeUploaded ? handleUpdateProfile : handleSaveNewProfile}
@@ -542,7 +570,7 @@ const handleSaveNewProfile = async (profileData) => {
                       </svg>
                       <h3 className="text-lg font-medium text-gray-900 mb-2">No Profile Found</h3>
                       <p className="text-gray-600 mb-4">Please upload your resume first to create your profile</p>
-                      <button 
+                      <button
                         onClick={() => setActiveTab('dashboard')}
                         className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
                       >
@@ -555,11 +583,18 @@ const handleSaveNewProfile = async (profileData) => {
             )}
 
             {activeTab === 'relevantjobs' && (
-  <RelevantProjects />
-)}
+              <RelevantProjects />
+            )}
+
+            {activeTab === 'applications' && (
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h4 className="font-semibold text-gray-900 mb-4 text-lg">My Applications</h4>
+                <CandidateApplications />
+              </div>
+            )}
 
             {/* Other Tabs Placeholder */}
-           {activeTab !== 'dashboard' && activeTab !== 'profile' && activeTab !== 'relevantjobs' && (
+            {activeTab !== 'dashboard' && activeTab !== 'profile' && activeTab !== 'relevantjobs' && activeTab !== 'applications' && (
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                 <h4 className="font-semibold text-gray-900 mb-4 text-lg">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h4>
                 <div className="bg-blue-50 rounded-xl p-6 border border-blue-100 text-center py-12">

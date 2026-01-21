@@ -1,0 +1,119 @@
+{
+  "_id": "3167d6db-5828-49fa-a94f-0f96933f7781",
+  "user_id": "6970b0c3f7849457e0eed521",
+  "created_at": "2026-01-21T11:10:29.277954Z",
+  "vector_ids": {
+    "professional_summary": "prof_3167d6db-5828-49fa-a94f-0f96933f7781",
+    "skills_matrix": "skills_3167d6db-5828-49fa-a94f-0f96933f7781",
+    "project_portfolio": "project_3167d6db-5828-49fa-a94f-0f96933f7781"
+  },
+  "pinecone_metadata": {
+    "candidate_id": "3167d6db-5828-49fa-a94f-0f96933f7781",
+    "name": "MAYURI FALKE",
+    "seniority_level": "fresher",
+    "highest_education": "BE",
+    "has_leadership": false
+  },
+  "name": "MAYURI FALKE",
+  "phone": "(+91)  9503841342",
+  "mail": "mayurifalke222@gmail.com",
+  "social": {
+    "github": "",
+    "linkedin": "",
+    "portfolio": ""
+  },
+  "education": [
+    {
+      "name": "Government College of Engineering, Avasari Kh., Pune",
+      "qualification": "Bachelor of Engineering (B.E), Computer Science & Engineering",
+      "category": "Undergraduate",
+      "start": "2025",
+      "end": "Present"
+    },
+    {
+      "name": "CSMSS College of Polytechnic, Chh. Sambhaji nagar",
+      "qualification": "Diploma in Computer Engineering",
+      "category": "Diploma / Vocational Education",
+      "start": "",
+      "end": "2023"
+    },
+    {
+      "name": "Small Wonders School, Waluj, Chh. Sambhaji nagar",
+      "qualification": "X (State Board)",
+      "category": "Secondary Education",
+      "start": "",
+      "end": "2020"
+    }
+  ],
+  "skills": [
+    "Java",
+    "ReactJS",
+    "JavaScript",
+    "Node.js",
+    "Express.js",
+    "CSS",
+    "Bootstrap",
+    "HTML",
+    "PHP",
+    "MySQL",
+    "MongoDB (Basic)",
+    "VSCode",
+    "Github",
+    "Git",
+    "PyScripter",
+    "Dev-C++",
+    "IntelliJ IDEA"
+  ],
+  "projects": [
+    {
+      "title": "Valine Agro",
+      "description": "Developed a role-based web application to display hierarchical sales data with an admin panel for complete management.",
+      "project_skills": [
+        "MERN Stack"
+      ]
+    },
+    {
+      "title": "Customer Relationship Management (CRM) Web Application",
+      "description": "Worked on a live React CRM project, developing frontend components and integrating APIs seamlessly.",
+      "project_skills": [
+        "React",
+        "API Integration"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "company_name": "DD Digital Solution",
+      "designation": "React Developer (Trainee)",
+      "description": "Integrated REST APIs and built responsive UI for a live CRM project. Collaborated with clients to gather requirements and align frontend with backend seamlessly.",
+      "experiance_skills": [
+        "React",
+        "REST APIs",
+        "UI Development"
+      ],
+      "start": "January 6",
+      "end": "May 20"
+    },
+    {
+      "company_name": "Hi-soft IT Solution Pvt. Ltd.",
+      "designation": "Software Developer Intern",
+      "description": "Developed a responsive web application using PHP, MySQL, JavaScript, HTML, and CSS. Gained hands-on experience in full stack development, enhancing user satisfaction and project efficiency.",
+      "experiance_skills": [
+        "PHP",
+        "MySQL",
+        "JavaScript",
+        "HTML",
+        "CSS",
+        "Full Stack Development"
+      ],
+      "start": "July 4",
+      "end": "August 7"
+    }
+  ],
+  "certifications": [
+    "React and Redux – KGCoding, October 2024",
+    "Java Certification – HackerRank, June 2024"
+  ],
+  "achievements": [],
+  "total_experience_years": 0
+}

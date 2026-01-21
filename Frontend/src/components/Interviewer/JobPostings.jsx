@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import api from '../../api';
 
 const JobPostings = () => {
   const [jobs, setJobs] = useState([]);
@@ -31,7 +32,23 @@ const JobPostings = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingJobDetail, setIsLoadingJobDetail] = useState(false);
+  const [isLoadingApplicants, setIsLoadingApplicants] = useState(false);
   const [error, setError] = useState('');
+  const [applicantsError, setApplicantsError] = useState('');
+  const [viewMode, setViewMode] = useState('details'); // 'details' | 'applicants' | 'ranked'
+  const [applicants, setApplicants] = useState([]);
+  const [applicantCounts, setApplicantCounts] = useState({});
+  const [rankedCandidates, setRankedCandidates] = useState([]);
+  const [rankedLoading, setRankedLoading] = useState(false);
+  const [rankedError, setRankedError] = useState('');
+  const [rankFilters, setRankFilters] = useState({
+    has_leadership: null,
+    highest_education: '',
+    seniority_level: '',
+    top_k: 20,
+  });
+  const [inviteLoadingId, setInviteLoadingId] = useState(null);
+  const [invitedCandidates, setInvitedCandidates] = useState(new Set());
 
   useEffect(() => {
     fetchMyProjects();
@@ -48,8 +65,12 @@ const JobPostings = () => {
       });
       
       if (response.data.success) {
-        setJobs(response.data.projects || []);
-        setFilteredJobs(response.data.projects || []);
+        const projects = response.data.projects || [];
+        setJobs(projects);
+        setFilteredJobs(projects);
+
+        // Fetch application counts for these projects
+        await fetchApplicationCounts();
       } else {
         setError(response.data.message || 'Failed to fetch projects');
         setJobs([]);
@@ -63,6 +84,21 @@ const JobPostings = () => {
       setFilteredJobs([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchApplicationCounts = async () => {
+    try {
+      const response = await axios.get('/api/applications/counts-for-my-projects', {
+        withCredentials: true,
+      });
+
+      if (response.data?.success && response.data.counts) {
+        setApplicantCounts(response.data.counts);
+      }
+    } catch (err) {
+      console.error('Error fetching application counts:', err);
+      // Non-blocking: if this fails we just keep counts at 0
     }
   };
 
@@ -139,16 +175,56 @@ const JobPostings = () => {
   const handleJobClick = async (job) => {
     // Use the job data we already have, or fetch fresh details if needed
     setSelectedJob(job);
+    setViewMode('details');
+    setApplicants([]);
+    setApplicantsError('');
     
     // Uncomment if you want to fetch fresh data from API
     // await fetchJobDetail(job._id);
   };
 
-  const handleViewApplicants = (jobId, event) => {
+  const fetchApplicants = async (jobId) => {
+    try {
+      setIsLoadingApplicants(true);
+      setApplicantsError('');
+
+      const response = await axios.get(`/api/applications/by-project/${jobId}`, {
+        withCredentials: true,
+      });
+
+      if (response.data?.success) {
+        const list = response.data.applicants || [];
+        setApplicants(list);
+        setApplicantCounts((prev) => ({
+          ...prev,
+          [jobId]: list.length,
+        }));
+      } else {
+        setApplicantsError(response.data?.detail || response.data?.message || 'Failed to load applicants');
+        setApplicants([]);
+      }
+    } catch (err) {
+      console.error('Error fetching applicants:', err);
+      const msg = err.response?.data?.detail || err.response?.data?.message || 'Failed to load applicants';
+      setApplicantsError(msg);
+      setApplicants([]);
+    } finally {
+      setIsLoadingApplicants(false);
+    }
+  };
+
+  const handleViewApplicants = async (jobId, event) => {
     event.stopPropagation(); // Prevent triggering the job click
-    console.log('View applicants for job:', jobId);
-    // TODO: Implement view applicants functionality
-    // You can navigate to applicants page or show a modal
+    setViewMode('applicants');
+
+    if (!selectedJob || selectedJob._id !== jobId) {
+      const job = jobs.find((j) => j._id === jobId);
+      if (job) {
+        setSelectedJob(job);
+      }
+    }
+
+    await fetchApplicants(jobId);
   };
 
   const handleEditJob = (jobId, event) => {
@@ -219,14 +295,118 @@ const JobPostings = () => {
     return 'Salary not specified';
   };
 
-  // Get number of applicants for a job (you'll need to implement this API)
   const getApplicantCount = (jobId) => {
-    // TODO: Replace with actual API call to get applicant count
-    // For now, return mock data
-    const mockApplicantCounts = {
-      "eddbe2c6-e409-4403-b6c8-2daa5d9352dc": 12,
-    };
-    return mockApplicantCounts[jobId] || 0;
+    return applicantCounts[jobId] || 0;
+  };
+
+  const handleStatusUpdate = async (applicationId, status) => {
+    try {
+      const response = await axios.patch(`/api/applications/${applicationId}/status`, {
+        status,
+      }, {
+        withCredentials: true,
+      });
+
+      if (response.data?.success) {
+        setApplicants((prev) =>
+          prev.map((app) =>
+            app.application_id === applicationId ? { ...app, status } : app
+          )
+        );
+      } else {
+        alert(response.data?.detail || response.data?.message || 'Failed to update status');
+      }
+    } catch (err) {
+      console.error('Error updating application status:', err);
+      const msg = err.response?.data?.detail || err.response?.data?.message || 'Failed to update status';
+      alert(msg);
+    }
+  };
+
+  const handleRankFilterChange = (field, value) => {
+    setRankFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleLeadershipToggle = (value) => {
+    setRankFilters((prev) => ({
+      ...prev,
+      has_leadership: value,
+    }));
+  };
+
+  const handleGetRankedCandidates = async () => {
+    if (!selectedJob?._id) return;
+
+    try {
+      setRankedLoading(true);
+      setRankedError('');
+      setRankedCandidates([]);
+
+      const payload = {
+        project_id: selectedJob._id,
+        top_k: Number(rankFilters.top_k) || 20,
+        filters: {
+          has_leadership:
+            rankFilters.has_leadership === null
+              ? null
+              : Boolean(rankFilters.has_leadership),
+          highest_education: rankFilters.highest_education || null,
+          seniority_level: rankFilters.seniority_level || null,
+        },
+      };
+
+      const response = await api.post('/get-ranked-candidates', payload);
+
+      if (response.data?.success) {
+        setRankedCandidates(response.data.combined_ranked_results || []);
+      } else {
+        setRankedError(
+          response.data?.detail || response.data?.message || 'Failed to get ranked candidates'
+        );
+      }
+    } catch (err) {
+      console.error('Error getting ranked candidates:', err);
+      const msg =
+        err.response?.data?.detail ||
+        err.response?.data?.message ||
+        'Failed to get ranked candidates';
+      setRankedError(msg);
+    } finally {
+      setRankedLoading(false);
+    }
+  };
+
+  const handleInvite = async (candidate) => {
+    if (candidate.has_applied || inviteLoadingId) return;
+    if (!selectedJob?._id || !candidate.candidate_id) return;
+
+    try {
+      setInviteLoadingId(candidate.candidate_id);
+      const response = await api.post('/invite-candidate', {
+        project_id: selectedJob._id,
+        candidate_id: candidate.candidate_id,
+      });
+
+      if (response.data?.success) {
+        // Mark this candidate as invited
+        setInvitedCandidates((prev) => new Set(prev).add(candidate.candidate_id));
+        alert(response.data.message || 'Invitation email sent');
+      } else {
+        alert(response.data?.detail || response.data?.message || 'Failed to send invitation');
+      }
+    } catch (err) {
+      console.error('Error sending invite:', err);
+      const msg =
+        err.response?.data?.detail ||
+        err.response?.data?.message ||
+        'Failed to send invitation';
+      alert(msg);
+    } finally {
+      setInviteLoadingId(null);
+    }
   };
 
   if (selectedJob) {
@@ -265,13 +445,42 @@ const JobPostings = () => {
                 </div>
               </div>
 
+              <div className="mb-6 flex space-x-4 border-b border-purple-100 pb-2">
+                <button
+                  onClick={() => setViewMode('details')}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                    viewMode === 'details'
+                      ? 'bg-white text-purple-700 border border-purple-200'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Job Details
+                </button>
+                <button
+                  onClick={() => {
+                    setViewMode('applicants');
+                    fetchApplicants(selectedJob._id);
+                  }}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                    viewMode === 'applicants'
+                      ? 'bg-white text-purple-700 border border-purple-200'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Applicants
+                </button>
+              </div>
+
+              {viewMode === 'details' && (
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3 text-lg">Job Description</h3>
                 <p className="text-gray-700 leading-relaxed whitespace-pre-line text-base">
                   {selectedJob.project_description || 'No description available'}
                 </p>
               </div>
+              )}
 
+              {viewMode === 'details' && (
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3 text-lg">Required Skills</h3>
                 <div className="flex flex-wrap gap-2">
@@ -288,7 +497,9 @@ const JobPostings = () => {
                   )}
                 </div>
               </div>
+              )}
 
+              {viewMode === 'details' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-base">
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">Job Details</h4>
@@ -307,8 +518,10 @@ const JobPostings = () => {
                   </div>
                 </div>
               </div>
+              )}
 
-              <div className="flex space-x-4 pt-6 border-t border-gray-200">
+              {viewMode === 'details' && (
+              <div className="flex flex-wrap gap-3 pt-6 border-t border-gray-200">
                 <button className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 font-medium text-base">
                   {getApplicantCount(selectedJob._id)} Applicants
                 </button>
@@ -324,7 +537,282 @@ const JobPostings = () => {
                 >
                   Edit Job
                 </button>
+                <button
+                  onClick={() => setViewMode('ranked')}
+                  className="ml-auto bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 text-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl hover:from-yellow-500 hover:via-orange-600 hover:to-pink-600 transition-all duration-200 font-semibold text-base border border-yellow-300"
+                >
+                  ★ Get Ranked Candidates (Premium)
+                </button>
               </div>
+              )}
+
+              {viewMode === 'applicants' && (
+                <div className="mt-4">
+                  {isLoadingApplicants ? (
+                    <div className="text-center py-8 text-gray-600">
+                      Loading applicants...
+                    </div>
+                  ) : applicantsError ? (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                      {applicantsError}
+                    </div>
+                  ) : applicants.length === 0 ? (
+                    <div className="bg-purple-50 border border-purple-200 text-purple-800 px-4 py-3 rounded-lg">
+                      No applicants have applied for this job yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {applicants.map((app) => (
+                        <div
+                          key={app.application_id}
+                          className="bg-white rounded-lg border border-gray-200 shadow-sm p-4"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h3 className="font-semibold text-gray-900 text-base">
+                                {app.candidate?.name || 'Unknown Candidate'}
+                              </h3>
+                              <p className="text-gray-600 text-sm">
+                                {app.candidate?.current_role || 'Role not specified'}
+                              </p>
+                              {app.candidate?.total_experience_years != null && (
+                                <p className="text-gray-500 text-xs">
+                                  {app.candidate.total_experience_years} years experience
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-800 font-medium">
+                              {app.status ? app.status.charAt(0).toUpperCase() + app.status.slice(1) : 'Applied'}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-end space-x-2 mt-3 text-sm">
+                            <button
+                              onClick={() => handleStatusUpdate(app.application_id, 'shortlisted')}
+                              className="px-3 py-1 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
+                            >
+                              Shortlist
+                            </button>
+                            <button
+                              onClick={() => handleStatusUpdate(app.application_id, 'rejected')}
+                              className="px-3 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600"
+                            >
+                              Reject
+                            </button>
+                            <button
+                              onClick={() => handleStatusUpdate(app.application_id, 'hired')}
+                              className="px-3 py-1 rounded-lg bg-green-500 text-white hover:bg-green-600"
+                            >
+                              Mark as Hired
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {viewMode === 'ranked' && (
+                <div className="mt-6 bg-white rounded-xl border border-purple-100 p-5 shadow-sm">
+                  <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-4">
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-gray-900 text-lg">Get Ranked Candidates (Premium)</h4>
+                      <p className="text-gray-600 text-sm">
+                        Use AI ranking to find the best-matching candidates for this job based on resume, projects, and skills.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs uppercase tracking-wide text-yellow-600 font-semibold bg-yellow-50 border border-yellow-200 px-3 py-1 rounded-full">
+                        Premium Feature
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Leadership Experience
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleLeadershipToggle(true)}
+                          className={`flex-1 px-3 py-2 rounded-lg text-sm border ${
+                            rankFilters.has_leadership === true
+                              ? 'bg-purple-600 text-white border-purple-600'
+                              : 'bg-white text-gray-700 border-gray-300'
+                          }`}
+                        >
+                          Required
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleLeadershipToggle(false)}
+                          className={`flex-1 px-3 py-2 rounded-lg text-sm border ${
+                            rankFilters.has_leadership === false
+                              ? 'bg-purple-100 text-purple-700 border-purple-300'
+                              : 'bg-white text-gray-700 border-gray-300'
+                          }`}
+                        >
+                          No
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleLeadershipToggle(null)}
+                          className={`flex-1 px-3 py-2 rounded-lg text-sm border ${
+                            rankFilters.has_leadership === null
+                              ? 'bg-gray-100 text-gray-800 border-gray-300'
+                              : 'bg-white text-gray-500 border-gray-200'
+                          }`}
+                        >
+                          Any
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Highest Education
+                      </label>
+                      <select
+                        value={rankFilters.highest_education}
+                        onChange={(e) => handleRankFilterChange('highest_education', e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                      >
+                        <option value="">Any</option>
+                        <option value="Diploma">Diploma</option>
+                        <option value="Undergraduate">Undergraduate</option>
+                        <option value="Postgraduate">Postgraduate</option>
+                        <option value="Doctorate">Doctorate</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Seniority Level
+                      </label>
+                      <select
+                        value={rankFilters.seniority_level}
+                        onChange={(e) => handleRankFilterChange('seniority_level', e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                      >
+                        <option value="">Any</option>
+                        <option value="Junior">Junior</option>
+                        <option value="Mid">Mid</option>
+                        <option value="Senior">Senior</option>
+                        <option value="Lead">Lead</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Top K Candidates
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={rankFilters.top_k}
+                        onChange={(e) => handleRankFilterChange('top_k', e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="text-xs text-gray-500">
+                      Filters are optional. Leave as <span className="font-semibold">Any</span> to ignore a field.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGetRankedCandidates}
+                      disabled={rankedLoading}
+                      className="bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 text-white px-5 py-2.5 rounded-full shadow-md hover:shadow-lg hover:from-yellow-500 hover:via-orange-600 hover:to-pink-600 transition-all duration-200 text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {rankedLoading ? 'Ranking candidates...' : 'Search Ranked Candidates'}
+                    </button>
+                  </div>
+
+                  {rankedError && (
+                    <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+                      {rankedError}
+                    </div>
+                  )}
+
+                  {rankedCandidates.length > 0 && (
+                    <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 text-sm font-medium text-gray-700 flex">
+                        <div className="w-10">#</div>
+                        <div className="flex-1">Candidate</div>
+                        <div className="w-24 text-right">Overall</div>
+                        <div className="w-24 text-right">Prof.</div>
+                        <div className="w-24 text-right">Projects</div>
+                        <div className="w-24 text-right">Skills</div>
+                        <div className="w-32 text-right hidden md:block">Seniority</div>
+                        <div className="w-32 text-right">Action</div>
+                      </div>
+                      {rankedCandidates.map((c, idx) => (
+                        <div
+                          key={c.candidate_id + '_' + idx}
+                          className="px-4 py-2 text-sm text-gray-800 flex odd:bg-white even:bg-gray-50"
+                        >
+                          <div className="w-10 font-medium text-gray-600">{idx + 1}</div>
+                          <div className="flex-1">
+                            <div className="font-semibold">{c.name || 'Unnamed Candidate'}</div>
+                            <div className="text-xs text-gray-500">
+                              {c.highest_education || 'Education: N/A'} • {c.has_leadership ? 'Leadership' : 'Individual contributor'}
+                            </div>
+                          </div>
+                          <div className="w-24 text-right font-semibold text-purple-700">
+                            {(c.overall_score * 100).toFixed(0)}%
+                          </div>
+                          <div className="w-24 text-right text-gray-700">
+                            {(c.professional_score * 100).toFixed(0)}%
+                          </div>
+                          <div className="w-24 text-right text-gray-700">
+                            {(c.project_score * 100).toFixed(0)}%
+                          </div>
+                          <div className="w-24 text-right text-gray-700">
+                            {(c.skills_score * 100).toFixed(0)}%
+                          </div>
+                          <div className="w-32 text-right text-gray-700 hidden md:block">
+                            {c.seniority_level || 'N/A'}
+                          </div>
+                          <div className="w-32 flex justify-end items-center">
+                            {c.has_applied ? (
+                              <button
+                                type="button"
+                                className="px-3 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold border border-green-200 cursor-default"
+                                disabled
+                              >
+                                Applied
+                              </button>
+                            ) : invitedCandidates.has(c.candidate_id) ? (
+                              <button
+                                type="button"
+                                className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-200 cursor-default"
+                                disabled
+                              >
+                                Invited
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleInvite(c)}
+                                disabled={inviteLoadingId === c.candidate_id}
+                                className="px-3 py-1 rounded-full bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                              >
+                                {inviteLoadingId === c.candidate_id ? 'Inviting...' : 'Invite'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>

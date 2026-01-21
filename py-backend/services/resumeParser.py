@@ -5,6 +5,7 @@ import re
 import os
 from datetime import datetime
 from glob import glob
+import logging
 
 # --- Configuration ---
 from dotenv import load_dotenv
@@ -15,6 +16,8 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # ✅ Initialize the OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
+
+logger = logging.getLogger(__name__)
 
 
 # --- PDF Text Extraction ---
@@ -143,7 +146,7 @@ def parse_any_date(date_str):
             pass
     
     # If we STILL can't parse it, return None and log the problematic format
-    print(f"⚠️  Could not parse date: '{date_str}'")
+    logger.warning("Could not parse date: %r", date_str)
     return None
 
 
@@ -170,16 +173,16 @@ def calculate_total_experience(experience_data):
         
         # Validate dates
         if not start_date:
-            print(f"⚠️  Could not parse start date: '{start_str}'")
+            logger.warning("Could not parse start date: %r", start_str)
             continue
         
         if not end_date:
-            print(f"⚠️  Could not parse end date: '{end_str}', using current date")
+            logger.warning("Could not parse end date: %r, using current date", end_str)
             end_date = datetime.now()
         
         # Ensure logical date order
         if end_date < start_date:
-            print(f"⚠️  End date before start date: {start_str} - {end_str}, swapping")
+            logger.warning("End date before start date: %r - %r, swapping", start_str, end_str)
             start_date, end_date = end_date, start_date
         
         # Add to periods
@@ -341,16 +344,18 @@ def parse_resume_with_genai(resume_text):
         total_experience = calculate_total_experience(experience_data)
         parsed_data['total_experience_years'] = total_experience
         
-        print(f"✅ Calculated total experience: {total_experience} years")
+        logger.info("Calculated total experience: %s years", total_experience)
         
         return parsed_data
         
     except Exception as e:
-        print(f"❌ An error occurred during LLM processing or JSON parsing: {e}")
+        logger.error("An error occurred during LLM processing or JSON parsing: %s", e)
         try:
             raw = response.choices[0].message.content if response and response.choices else None
             if raw:
-                print(f"Raw response from API was: {raw}")
+                # Avoid Windows console encoding issues by logging safely
+                safe_raw = str(raw).encode("utf-8", errors="replace").decode("utf-8")
+                logger.error("Raw response from API was: %s", safe_raw)
         except Exception:
             pass
         return {"error": "Failed to parse GenAI response into valid JSON."}

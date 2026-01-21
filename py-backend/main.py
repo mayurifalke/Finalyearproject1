@@ -7,7 +7,7 @@ import re
 from uuid import uuid4
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from bson import ObjectId
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request, Body
@@ -17,6 +17,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from typing import List, Dict, Any
 import jwt  # Make sure you have pyjwt installed: pip install pyjwt
+import emails
 
 # --- Services ---
 from services.resumeParser import extract_text_from_pdf, parse_resume_with_genai
@@ -91,6 +92,7 @@ db = client[MONGO_DB]
 candidates_col = db[MONGO_COL]
 projects_col = db[sanitize_mongo_name(os.getenv("MONGO_PROJECT_COL", "projects"))]
 evaluations_col = db[sanitize_mongo_name(os.getenv("MONGO_EVAL_COL", "evaluations"))]
+applications_col = db[sanitize_mongo_name(os.getenv("MONGO_APP_COL", "applications"))]
 
 # ------------------------------------------------------------
 # FastAPI app
@@ -266,7 +268,7 @@ async def register_json(payload: dict, request: Request):
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication required")
 
-        print(f"🔍 Registering candidate for user_id: {user_id}")
+        print(f"[INFO] Registering candidate for user_id: {user_id}")
 
         # Check if candidate already exists with this user_id
         existing_candidate = candidates_col.find_one({"user_id": user_id})
@@ -275,11 +277,11 @@ async def register_json(payload: dict, request: Request):
         if existing_candidate:
             # Update existing candidate
             candidate_id = existing_candidate["_id"]
-            print(f"✅ Updating existing candidate with ID: {candidate_id} for user_id: {user_id}")
+            print(f"[OK] Updating existing candidate with ID: {candidate_id} for user_id: {user_id}")
         else:
             # Create new candidate with UUID _id
             candidate_id = str(uuid4())
-            print(f"✅ Creating new candidate with ID: {candidate_id} for user_id: {user_id}")
+            print(f"[OK] Creating new candidate with ID: {candidate_id} for user_id: {user_id}")
 
         # Add to Pinecone FIRST to get vector IDs
         pinecone_result = pinecone_vectoriser.add_candidate(payload, candidate_id)
@@ -309,15 +311,15 @@ async def register_json(payload: dict, request: Request):
             # Insert new candidate
             candidates_col.insert_one(mongo_doc)
         
-        logger.info(f"✅ Saved candidate to MongoDB: {candidate_id} for user: {user_id}")
+        logger.info(f"[OK] Saved candidate to MongoDB: {candidate_id} for user: {user_id}")
 
         # Save JSON to dataset/ (optional, for backup)
         file_path = Path(DATASET_DIR) / f"{candidate_id}.json"
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(mongo_doc, f, ensure_ascii=False, indent=2)
 
-        logger.info(f"✅ Successfully registered candidate: {candidate_id} for user: {user_id}")
-        logger.info(f"✅ Vector IDs stored: {pinecone_result['vector_ids']}")
+        logger.info(f"[OK] Successfully registered candidate: {candidate_id} for user: {user_id}")
+        logger.info(f"[OK] Vector IDs stored: {pinecone_result['vector_ids']}")
 
         return {
             "success": True, 
@@ -350,6 +352,33 @@ async def get_candidate(candidate_id: str):
         "candidate": doc,
         "vector_ids": doc.get("vector_ids", {})
     }
+
+
+@app.get("/api/candidate/me", response_model=CandidateResponse)
+async def get_candidate_for_current_user(request: Request):
+    """
+    Fetch candidate profile for the currently logged-in user based on JWT user_id.
+    Useful when the frontend doesn't yet know the candidate_id.
+    """
+    try:
+        user_id = _extract_user_id_from_request(request)
+
+        doc = candidates_col.find_one({"user_id": user_id})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        doc["_id"] = str(doc["_id"])
+
+        return {
+            "success": True,
+            "candidate": doc,
+            "vector_ids": doc.get("vector_ids", {}),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to fetch candidate for current user")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------------------------------------------------
 # 4. Update candidate JSON + update Pinecone (UPDATED)
@@ -464,8 +493,8 @@ async def update_candidate(candidate_id: str, payload: dict, request: Request):
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(update_data, f, ensure_ascii=False, indent=2)
 
-        logger.info(f"✅ Successfully updated candidate: {candidate_id}")
-        logger.info(f"✅ Updated vector IDs: {pinecone_result['vector_ids']}")
+        logger.info(f"[OK] Successfully updated candidate: {candidate_id}")
+        logger.info(f"[OK] Updated vector IDs: {pinecone_result['vector_ids']}")
 
         return {
             "success": True, 
@@ -1036,24 +1065,24 @@ async def get_relevant_projects_for_current_candidate(
                 except jwt.ExpiredSignatureError:
                     raise HTTPException(status_code=401, detail="Token expired")
                 except jwt.InvalidTokenError as e:
-                    print(f"❌ JWT decode error: {str(e)}")
+                    print(f"[ERROR] JWT decode error: {str(e)}")
                     raise HTTPException(status_code=401, detail="Invalid token")
 
         if not user_id:
-            print("❌ No user_id found in request or token")
+            print("[ERROR] No user_id found in request or token")
             raise HTTPException(status_code=401, detail="Authentication required")
 
-        print(f"🔍 Final user_id being used: {user_id}")
+        print(f"[INFO] Final user_id being used: {user_id}")
 
         # ✅ FIXED: Search candidate by user_id field (which matches JWT user_id)
         candidate_doc = candidates_col.find_one({"user_id": user_id})
         
         if not candidate_doc:
-            print(f"❌ Candidate not found in MongoDB for user_id: {user_id}")
+            print(f"[ERROR] Candidate not found in MongoDB for user_id: {user_id}")
             
             # Check if any candidates exist at all
             total_candidates = candidates_col.count_documents({})
-            print(f"🔍 Total candidates in database: {total_candidates}")
+            print(f"[INFO] Total candidates in database: {total_candidates}")
             
             if total_candidates == 0:
                 raise HTTPException(
@@ -1072,14 +1101,14 @@ async def get_relevant_projects_for_current_candidate(
                     }
                     available_info.append(info)
                 
-                print(f"🔍 Available candidates: {available_info}")
+                print(f"[INFO] Available candidates: {available_info}")
                 
                 raise HTTPException(
                     status_code=404, 
                     detail="Candidate profile not found. Please complete your profile setup first."
                 )
         
-        # print(f"✅ Candidate found: {candidate_doc.get('name', 'Unknown')} (MongoDB ID: {candidate_doc['_id']}, JWT user_id: {candidate_doc.get('user_id')})")
+        # print(f"[OK] Candidate found: {candidate_doc.get('name', 'Unknown')} (MongoDB ID: {candidate_doc['_id']}, JWT user_id: {candidate_doc.get('user_id')})")
         
         # Get candidate's vector IDs
         vector_ids = candidate_doc.get("vector_ids", {})
@@ -1192,6 +1221,380 @@ async def get_relevant_projects_for_current_candidate(
     except Exception as e:
         logger.exception("Failed to fetch candidate relevant projects")
         raise HTTPException(status_code=500, detail=str(e))  
+
+
+# ------------------------------------------------------------
+# 12. Job Applications - Candidate & Interviewer views
+# ------------------------------------------------------------
+
+def _extract_user_id_from_request(request: Request) -> str:
+    """
+    Helper to consistently extract JWT user_id from FastAPI request/cookies.
+    Returns user_id string or raises HTTPException if not authenticated.
+    """
+    user_id = getattr(request.state, "user_id", None)
+
+    if not user_id:
+        token = request.cookies.get("token")
+        if token:
+            try:
+                decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+                user_id = (
+                    decoded.get("userId")
+                    or decoded.get("user_id")
+                    or decoded.get("id")
+                    or decoded.get("userID")
+                )
+            except jwt.ExpiredSignatureError:
+                raise HTTPException(status_code=401, detail="Token expired")
+            except jwt.InvalidTokenError:
+                raise HTTPException(status_code=401, detail="Invalid token")
+
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    return user_id
+
+
+@app.post("/api/applications/apply")
+async def apply_to_project(request: Request, payload: dict = Body(...)):
+    """
+    Candidate applies to a project.
+    Expects JSON with at minimum:
+      - project_id: str
+      - project_details: optional snapshot of job details for faster UI
+    """
+    try:
+        project_id = payload.get("project_id")
+        project_details = payload.get("project_details") or {}
+
+        if not project_id:
+            raise HTTPException(status_code=400, detail="project_id is required")
+
+        user_id = _extract_user_id_from_request(request)
+
+        # Candidate profile must exist and be linked via user_id
+        candidate_doc = candidates_col.find_one({"user_id": user_id})
+        if not candidate_doc:
+            raise HTTPException(
+                status_code=400,
+                detail="Candidate profile not found. Please complete your profile first.",
+            )
+
+        # Avoid duplicate applications
+        existing = applications_col.find_one(
+            {"user_id": user_id, "project_id": project_id}
+        )
+        if existing:
+            return {
+                "success": True,
+                "application_id": str(existing["_id"]),
+                "status": existing.get("status", "applied"),
+                "message": "You have already applied to this job.",
+            }
+
+        now = datetime.utcnow().isoformat() + "Z"
+
+        # Minimal snapshot of job info so candidate dashboard can render quickly
+        snapshot = {
+            "job_title": project_details.get("job_title"),
+            "employment_type": project_details.get("employment_type"),
+            "job_location": project_details.get("job_location"),
+            "salary_min": project_details.get("salary_min"),
+            "salary_max": project_details.get("salary_max"),
+            "salary_frequency": project_details.get("salary_frequency"),
+        }
+
+        app_doc = {
+            "_id": str(uuid4()),
+            "user_id": user_id,
+            "candidate_id": str(candidate_doc["_id"]),
+            "project_id": project_id,
+            "status": "applied",
+            "project_snapshot": snapshot,
+            "created_at": now,
+            "updated_at": now,
+        }
+
+        applications_col.insert_one(app_doc)
+        logger.info(
+            f"Created application {app_doc['_id']} for user_id {user_id} project {project_id}"
+        )
+
+        return {
+            "success": True,
+            "application_id": app_doc["_id"],
+            "status": app_doc["status"],
+            "message": "Application submitted successfully.",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to create application")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/applications/mine")
+async def get_my_applications(request: Request):
+    """
+    Candidate: list all applications for the logged-in user.
+    """
+    try:
+        user_id = _extract_user_id_from_request(request)
+
+        cursor = applications_col.find({"user_id": user_id}).sort("created_at", -1)
+        applications = []
+        for doc in cursor:
+            applications.append(
+                {
+                    "application_id": str(doc.get("_id")),
+                    "project_id": doc.get("project_id"),
+                    "status": doc.get("status", "applied"),
+                    "created_at": doc.get("created_at"),
+                    "updated_at": doc.get("updated_at"),
+                    "project_snapshot": doc.get("project_snapshot", {}),
+                }
+            )
+
+        return {"success": True, "applications": applications}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to fetch applications for candidate")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/applications/by-project/{project_id}")
+async def get_applications_for_project(project_id: str, request: Request):
+    """
+    Interviewer: list all applicants for a specific project they own.
+    """
+    try:
+        user_id = _extract_user_id_from_request(request)
+
+        project_doc = projects_col.find_one({"_id": project_id})
+        if not project_doc:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        if str(project_doc.get("interviewer_id")) != str(user_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You are not authorized to view applicants for this project",
+            )
+
+        cursor = applications_col.find({"project_id": project_id}).sort(
+            "created_at", -1
+        )
+        applicants = []
+
+        for doc in cursor:
+            candidate_id = doc.get("candidate_id")
+            candidate_doc = None
+            if candidate_id:
+                candidate_doc = candidates_col.find_one({"_id": candidate_id})
+
+            applicants.append(
+                {
+                    "application_id": str(doc.get("_id")),
+                    "status": doc.get("status", "applied"),
+                    "created_at": doc.get("created_at"),
+                    "updated_at": doc.get("updated_at"),
+                    "candidate": {
+                        "candidate_id": candidate_id,
+                        "name": candidate_doc.get("name")
+                        if candidate_doc
+                        else "Unknown",
+                        "total_experience_years": candidate_doc.get(
+                            "total_experience_years"
+                        )
+                        if candidate_doc
+                        else None,
+                        "current_role": candidate_doc.get("experience", [{}])[0].get(
+                            "designation"
+                        )
+                        if candidate_doc and candidate_doc.get("experience")
+                        else None,
+                    },
+                }
+            )
+
+        return {
+            "success": True,
+            "project_id": project_id,
+            "applicants": applicants,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to fetch applicants for project")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/applications/counts-for-my-projects")
+async def get_application_counts_for_my_projects(request: Request):
+    """
+    Interviewer: get application counts for all of their projects.
+    Returns a mapping of { project_id: count }.
+    """
+    try:
+        user_id = _extract_user_id_from_request(request)
+
+        # Find all projects owned by this interviewer
+        projects = list(projects_col.find({"interviewer_id": user_id}, {"_id": 1}))
+        project_ids = [str(p["_id"]) for p in projects]
+
+        counts = {}
+        for pid in project_ids:
+            counts[pid] = applications_col.count_documents({"project_id": pid})
+
+        return {"success": True, "counts": counts}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to fetch application counts for interviewer")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/invite-candidate")
+async def invite_candidate(payload: Dict[str, Any] = Body(...)):
+    """
+    Send an interview invitation email to a candidate for a given project.
+    Expects JSON with:
+      - project_id: str
+      - candidate_id: str
+    """
+    try:
+        project_id = payload.get("project_id")
+        candidate_id = payload.get("candidate_id")
+
+        if not project_id or not candidate_id:
+            raise HTTPException(status_code=400, detail="project_id and candidate_id are required")
+
+        project_doc = projects_col.find_one({"_id": project_id})
+        if not project_doc:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        candidate_doc = candidates_col.find_one({"_id": candidate_id})
+        if not candidate_doc:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        recipient_email = candidate_doc.get("mail")
+        if not recipient_email:
+            raise HTTPException(status_code=400, detail="Candidate email not available")
+
+        project_title = project_doc.get("job_title") or project_doc.get("project_heading") or "Job Opportunity"
+        candidate_name = candidate_doc.get("name", "Candidate")
+
+        # Email configuration from environment
+        smtp_host = os.getenv("SMTP_HOST")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        smtp_user = os.getenv("SMTP_USER")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+        sender_email = os.getenv("SENDER_EMAIL", smtp_user)
+
+        if not (smtp_host and smtp_user and smtp_password and sender_email):
+            raise HTTPException(
+                status_code=500,
+                detail="Email configuration is missing. Please set SMTP_HOST, SMTP_USER, SMTP_PASSWORD, and SENDER_EMAIL.",
+            )
+
+        subject = f"Interview Opportunity: {project_title}"
+        html_body = f"""
+        <h3>Hi {candidate_name},</h3>
+        <p>You have been invited to apply for the role of <strong>{project_title}</strong>.</p>
+        <p>Please log in to the HireAI portal to review the job details and continue the interview process.</p>
+        <p>Best regards,<br/>HireAI Team</p>
+        """
+
+        message = emails.html(
+            subject=subject,
+            html=html_body,
+            mail_from=sender_email,
+        )
+
+        response = message.send(
+            to=recipient_email,
+            smtp={
+                "host": smtp_host,
+                "port": smtp_port,
+                "user": smtp_user,
+                "password": smtp_password,
+                "tls": True,
+            },
+        )
+
+        if response.status_code not in (250, 251):
+            logger.error("Failed to send invite email. SMTP response: %s", response)
+            raise HTTPException(status_code=500, detail="Failed to send invitation email")
+
+        return {
+            "success": True,
+            "message": f"Invitation email sent to {recipient_email}",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to send invitation email")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/api/applications/{application_id}/status")
+async def update_application_status(
+    application_id: str, request: Request, payload: dict = Body(...)
+):
+    """
+    Interviewer: update status of an application.
+    Allowed statuses: applied, shortlisted, rejected, hired.
+    """
+    try:
+        user_id = _extract_user_id_from_request(request)
+        new_status = (payload.get("status") or "").lower()
+
+        allowed_statuses = {"applied", "shortlisted", "rejected", "hired"}
+        if new_status not in allowed_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status. Allowed: {', '.join(sorted(allowed_statuses))}",
+            )
+
+        app_doc = applications_col.find_one({"_id": application_id})
+        if not app_doc:
+            raise HTTPException(status_code=404, detail="Application not found")
+
+        project_id = app_doc.get("project_id")
+        project_doc = projects_col.find_one({"_id": project_id})
+        if not project_doc:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        if str(project_doc.get("interviewer_id")) != str(user_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You are not authorized to update this application",
+            )
+
+        now = datetime.utcnow().isoformat() + "Z"
+        applications_col.update_one(
+            {"_id": application_id},
+            {"$set": {"status": new_status, "updated_at": now}},
+        )
+
+        return {
+            "success": True,
+            "application_id": application_id,
+            "status": new_status,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to update application status")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # 12. Get Project by ID (NEW)
 # ------------------------------------------------------------
 @app.get("/api/project/{project_id}", response_model=ProjectResponse)
@@ -1367,6 +1770,7 @@ async def delete_project(project_id: str):
 # ------------------------------------------------------------
 
 @app.post("/get-ranked-candidates", response_model=GetRankedCandidatesResponse)
+@app.post("/api/get-ranked-candidates", response_model=GetRankedCandidatesResponse)
 async def get_ranked_candidates(request: GetRankedCandidatesRequest):
     """
     Get ranked candidates based on project ID.
@@ -1422,8 +1826,31 @@ async def get_ranked_candidates(request: GetRankedCandidatesRequest):
         
         # Limit to top_k results
         combined_results = results["combined_ranked"][:top_k]
-        
-        # Return only the combined ranked results (top_k)
+
+        # Enrich each candidate with email + has_applied flag
+        enriched_results = []
+        for candidate in combined_results:
+            candidate_id = candidate.get("candidate_id")
+            email: Optional[str] = None
+            has_applied: bool = False
+
+            if candidate_id:
+                # Look up candidate profile for email
+                cand_doc = candidates_col.find_one({"_id": candidate_id})
+                if cand_doc:
+                    email = cand_doc.get("mail")
+
+                # Check if this candidate has already applied to the project
+                has_applied = applications_col.count_documents(
+                    {"candidate_id": candidate_id, "project_id": project_id}
+                ) > 0
+
+            enriched_candidate = dict(candidate)
+            enriched_candidate["email"] = email
+            enriched_candidate["has_applied"] = has_applied
+            enriched_results.append(enriched_candidate)
+
+        # Return only the enriched combined ranked results (top_k)
         return {
             "success": True,
             "project_id": project_id,
@@ -1436,9 +1863,9 @@ async def get_ranked_candidates(request: GetRankedCandidatesRequest):
                 "project_portfolio": len(results["project_portfolio_ranked"]),
                 "skills_matrix": len(results["skills_matrix_ranked"]),
                 "combined_total": len(results["combined_ranked"]),
-                "combined_returned": len(combined_results)
+                "combined_returned": len(enriched_results)
             },
-            "combined_ranked_results": combined_results
+            "combined_ranked_results": enriched_results
         }
 
     except HTTPException:
